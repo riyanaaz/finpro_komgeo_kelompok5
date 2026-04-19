@@ -35,7 +35,6 @@
             transition: width 0.2s;
         }
         
-        /* Untuk tablet & mobile: sidebar mengecil atau menumpuk */
         @media (max-width: 768px) {
             body { flex-direction: column; }
             .sidebar {
@@ -139,6 +138,29 @@
         .route-note { font-size: 11px; color: #e67e22; text-align: center; margin-top: 10px; font-style: italic; padding: 5px; }
         .toggle-box label { display: flex; align-items: center; gap: 8px; }
         .icon-legend { display: inline-block; width: 20px; text-align: center; }
+
+        /* Custom marker colors */
+        .custom-marker {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            width: 30px;
+            height: 30px;
+            border-radius: 50% 50% 50% 0;
+            background: #27ae60;
+            color: white;
+            font-weight: bold;
+            font-size: 14px;
+            transform: rotate(-45deg);
+            box-shadow: 0 2px 5px rgba(0,0,0,0.3);
+            border: 2px solid white;
+        }
+        .marker-start .custom-marker { background: #c0392b; }
+        .marker-end .custom-marker { background: #27ae60; }
+        .custom-marker span {
+            transform: rotate(45deg);
+            display: inline-block;
+        }
     </style>
 </head>
 <body>
@@ -158,8 +180,8 @@
                     <button id="btnSearch">Cari</button>
                 </div>
                 <div class="set-point-btn">
-                    <button id="btnSetStart" style="background: #27ae60; color: white;">Jadikan Asal</button>
-                    <button id="btnSetEnd" style="background: #c0392b; color: white;">Jadikan Tujuan</button>
+                    <button id="btnSetStart" style="background: #c0392b; color: white;">Jadikan Asal</button>
+                    <button id="btnSetEnd" style="background: #27ae60; color: white;">Jadikan Tujuan</button>
                 </div>
             </div>
 
@@ -201,7 +223,7 @@
                 <div id="routeNote" class="route-note"></div>
             </div>
 
-            <!-- LEGENDA DENGAN WARNA CERAH -->
+            <!-- LEGENDA -->
             <div class="legend-container">
                 <div class="legend-layout">
                     <div style="flex: 1;">
@@ -250,11 +272,23 @@
             return Math.max(speed, MIN_FLOOD_SPEED[vehicle]);
         }
 
+        // Custom icon untuk marker
+        function createCustomIcon(color, letter) {
+            return L.divIcon({
+                className: 'custom-marker-container',
+                html: `<div class="custom-marker" style="background:${color};"><span>${letter}</span></div>`,
+                iconSize: [30, 30],
+                iconAnchor: [15, 30],
+                popupAnchor: [0, -25]
+            });
+        }
+
         // --------------------------------------------------------
         var map = L.map('map').setView([5.04, 97.16], 11);
         L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
 
         var start = null, end = null;
+        var startMarker = null, endMarker = null;
         var lShortestLayer = L.layerGroup().addTo(map);
         var lFastestLayer = L.layerGroup().addTo(map);
         var buildingLayer = L.layerGroup();
@@ -266,15 +300,19 @@
 
         function prosesKlik(latlng) {
             if (!start) { 
-                start = latlng; 
-                L.marker(latlng).addTo(map).bindPopup("<b>Titik Asal</b>").openPopup(); 
+                start = latlng;
+                if (startMarker) map.removeLayer(startMarker);
+                startMarker = L.marker(latlng, {icon: createCustomIcon('#c0392b', 'A')})
+                    .addTo(map).bindPopup("<b>Titik Asal</b>").openPopup(); 
             } else if (!end) { 
-                end = latlng; 
-                L.marker(latlng).addTo(map).bindPopup("<b>Titik Tujuan</b>").openPopup(); 
+                end = latlng;
+                if (endMarker) map.removeLayer(endMarker);
+                endMarker = L.marker(latlng, {icon: createCustomIcon('#27ae60', 'B')})
+                    .addTo(map).bindPopup("<b>Titik Tujuan</b>").openPopup(); 
             }
         }
 
-        // 1. Batas Administrasi (layer paling bawah)
+        // 1. Batas Administrasi
         fetch('data/boundary.geojson')
             .then(r => r.json())
             .then(data => {
@@ -283,7 +321,7 @@
                 }).addTo(map);
             });
 
-        // 2. Area Genangan Banjir (warna cerah)
+        // 2. Area Genangan Banjir
         fetch('data/aceh_depth.geojson')
             .then(r => r.json())
             .then(data => {
@@ -324,7 +362,7 @@
                 buildingLayer.addTo(map);
             });
 
-        // 4. Jaringan Jalan (dengan garis tepi putih agar kontras di atas poligon)
+        // 4. Jaringan Jalan
         fetch('data/routing_data.json')
             .then(r => r.json())
             .then(data => {
@@ -333,7 +371,6 @@
                 for (let u in routingData.edges) {
                     for (let v in routingData.edges[u]) {
                         let edge = routingData.edges[u][v];
-                        // Tambahkan outline putih di bawah garis abu-abu
                         let outline = L.polyline(edge.coords, {color: '#c8c8c8', weight: 1, opacity: 0.9});
                         let line = L.polyline(edge.coords, {color: '#c8c8c8', weight: 1, opacity: 0.1});
                         outline.addTo(roadLayer);
@@ -351,7 +388,6 @@
                 roadLayer.addTo(map);
             });
 
-        // Zoom handling untuk bangunan
         map.on('zoomend', () => {
             if (map.getZoom() < 14) {
                 if (map.hasLayer(buildingLayer)) map.removeLayer(buildingLayer);
@@ -371,17 +407,27 @@
                 let coords = found.geometry.coordinates[0][0];
                 let latlng = [coords[1], coords[0]];
                 if (searchMarker) map.removeLayer(searchMarker);
-                searchMarker = L.marker(latlng).addTo(map).bindPopup("Pencarian: " + found.properties.name).openPopup();
+                searchMarker = L.marker(latlng, {icon: createCustomIcon('#f1c40f', '🔍')}).addTo(map)
+                    .bindPopup("Pencarian: " + found.properties.name).openPopup();
                 map.setView(latlng, 16);
             } else alert("Lokasi tidak ditemukan!");
         };
+
         document.getElementById('btnSetStart').onclick = () => {
             if (!searchMarker) return alert("Cari lokasi dulu!");
-            start = searchMarker.getLatLng(); L.marker(start).addTo(map).bindPopup("Titik Asal").openPopup();
+            let latlng = searchMarker.getLatLng();
+            start = latlng;
+            if (startMarker) map.removeLayer(startMarker);
+            startMarker = L.marker(latlng, {icon: createCustomIcon('#27ae60', 'A')})
+                .addTo(map).bindPopup("Titik Asal").openPopup();
         };
         document.getElementById('btnSetEnd').onclick = () => {
             if (!searchMarker) return alert("Cari lokasi dulu!");
-            end = searchMarker.getLatLng(); L.marker(end).addTo(map).bindPopup("Titik Tujuan").openPopup();
+            let latlng = searchMarker.getLatLng();
+            end = latlng;
+            if (endMarker) map.removeLayer(endMarker);
+            endMarker = L.marker(latlng, {icon: createCustomIcon('#c0392b', 'B')})
+                .addTo(map).bindPopup("Titik Tujuan").openPopup();
         };
 
         function getNearestNode(latlng) {
@@ -490,11 +536,25 @@
             return h>0 ? `${h}j ${mn}m` : `${mn} menit`;
         }
 
+        // Toggle layers
         document.getElementById('toggleShortest').onchange = e => e.target.checked ? map.addLayer(lShortestLayer) : map.removeLayer(lShortestLayer);
         document.getElementById('toggleFastest').onchange = e => e.target.checked ? map.addLayer(lFastestLayer) : map.removeLayer(lFastestLayer);
-        document.getElementById('btnReset').onclick = () => location.reload();
         
-        // Inisialisasi ulang ukuran peta saat orientasi berubah
+        // Soft reset - tanpa mengubah posisi peta
+        document.getElementById('btnReset').onclick = () => {
+            // Hapus marker
+            if (startMarker) { map.removeLayer(startMarker); startMarker = null; }
+            if (endMarker) { map.removeLayer(endMarker); endMarker = null; }
+            if (searchMarker) { map.removeLayer(searchMarker); searchMarker = null; }
+            start = null; end = null;
+            // Hapus rute
+            lShortestLayer.clearLayers();
+            lFastestLayer.clearLayers();
+            // Sembunyikan panel hasil
+            document.getElementById('results').style.display = 'none';
+            // Posisi peta tidak diubah (baris map.setView dihapus)
+        };
+
         window.addEventListener('resize', () => { map.invalidateSize(); });
     </script>
 </body>
