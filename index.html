@@ -418,7 +418,7 @@
             let latlng = searchMarker.getLatLng();
             start = latlng;
             if (startMarker) map.removeLayer(startMarker);
-            startMarker = L.marker(latlng, {icon: createCustomIcon('#27ae60', 'A')})
+            startMarker = L.marker(latlng, {icon: createCustomIcon('#c0392b', 'A')})
                 .addTo(map).bindPopup("Titik Asal").openPopup();
         };
         document.getElementById('btnSetEnd').onclick = () => {
@@ -426,7 +426,7 @@
             let latlng = searchMarker.getLatLng();
             end = latlng;
             if (endMarker) map.removeLayer(endMarker);
-            endMarker = L.marker(latlng, {icon: createCustomIcon('#c0392b', 'B')})
+            endMarker = L.marker(latlng, {icon: createCustomIcon('#27ae60', 'B')})
                 .addTo(map).bindPopup("Titik Tujuan").openPopup();
         };
 
