@@ -731,14 +731,6 @@
             return h > 0 ? `${h}j ${mn}m` : `${mn} menit`;
         }
 
-        function clearResults() {
-            lShortestLayer.clearLayers();
-            lFastestLayer.clearLayers();
-            document.getElementById('results').style.display = 'none';
-            document.getElementById('timeInfo').innerHTML = '';
-            document.getElementById('routeNote').innerHTML = '';
-        }
-
         // ======================== LOAD DATA ========================
         fetch('data/boundary.geojson').then(r => r.json()).then(data => {
             L.geoJSON(data, { style: { color: '#e67e22', weight: 3, dashArray: '5, 10', fillOpacity: 0, interactive: false } }).addTo(map);
@@ -927,7 +919,7 @@
             lShortestLayer.clearLayers(); lFastestLayer.clearLayers();
             document.getElementById('results').style.display = 'flex';
 
-            if (!shortest) {clearResults(); return alert("Tidak ada rute yang aman untuk kendaraan ini di lokasi tersebut.");
+            if (!shortest)  return alert("Tidak ada rute yang aman untuk kendaraan ini di lokasi tersebut.");
 
             L.polyline(shortest.coords, { color: '#c71585', weight: 5, opacity: 0.9 }).addTo(lShortestLayer);
 
