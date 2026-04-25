@@ -68,9 +68,11 @@
                 flex-direction: row;
                 gap: 5px;
             }
-            .sidebar-content {
-                padding-bottom: 100px; 
-            }
+            .sidebar-content::after {
+            content: "";
+            display: block;
+            height: 150px; 
+            width: 100%;
         }
         }
 
