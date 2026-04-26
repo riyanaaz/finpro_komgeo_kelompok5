@@ -1,0 +1,1383 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+    <title>Analisis Mobilitas Banjir di Aceh Utara</title>
+    <link rel="icon" type="image/png" href="images/logo.png" />
+    
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <link rel="stylesheet" href="https://unpkg.com/intro.js/minified/introjs.min.css" />
+    
+    <style>
+        /* === GAYA DASAR & RESPONSIF === */
+        body {
+            margin: 0;
+            display: flex;
+            font-family: 'Inter', sans-serif;
+            height: 100vh;
+            background: #f4f6f8;
+            color: #2d3436;
+            overflow: hidden;
+            flex-direction: row;
+        }
+        #map {
+            flex: 1;
+            min-width: 0;
+            position: relative;
+        }
+
+        .sidebar {
+            width: 450px;
+            min-width: 320px;
+            max-width: 450px;
+            background: #ffffff;
+            border-left: 1px solid #dfe6e9;
+            box-shadow: -2px 0 10px rgba(0, 0, 0, 0.05);
+            display: flex;
+            flex-direction: column;
+            box-sizing: border-box;
+            height: 100vh;
+            transition: width 0.2s;
+            z-index: 1000;
+        }
+
+        /* TAMPILAN MOBILE & TABLET (RESPONSIF) */
+        @media (max-width: 768px) {
+            body {
+                flex-direction: column;
+            }
+            #map {
+                flex: none;
+                height: 50vh;
+                width: 100%;
+            }
+            .sidebar {
+                width: 100%;
+                max-width: 100%;
+                height: 50vh;
+                max-height: 50vh;
+                border-left: none;
+                border-top: 1px solid #dfe6e9;
+                box-shadow: 0 -2px 10px rgba(0, 0, 0, 0.1);
+            }
+        }
+
+        @media (max-width: 480px) {
+            .legend-layout {
+                flex-direction: row;
+                gap: 5px;
+            }
+            .sidebar-content::after {
+            content: "";
+            display: block;
+            height: 150px; 
+            width: 100%;
+        }
+        }
+
+        /* === PERBAIKAN STYLING INTRO.JS === */
+        .introjs-tooltip {
+            position: absolute !important; 
+            max-width: 90vw !important; 
+            width: 320px !important; 
+            border-radius: 8px !important;
+            box-shadow: 0 8px 24px rgba(0,0,0,0.15) !important;
+            font-family: 'Inter', sans-serif !important;
+            padding: 10px !important;
+        }
+        .introjs-helperLayer {
+            transition: all 0.1s ease-out !important; 
+        }
+        .introjs-tooltip-header {
+            padding-right: 55px !important;
+        }
+        .introjs-tooltip-title {
+            font-size: 15px !important;
+            font-weight: 700 !important;
+            color: #2d3436 !important;
+            line-height: 1.4 !important;
+        }
+        .introjs-skipbutton {
+            color: #b2bec3 !important;
+            font-weight: bold !important;
+            font-size: 13px !important;
+            padding: 8px !important;
+        }
+        .introjs-skipbutton:hover {
+            color: #e74c3c !important;
+        }
+        .introjs-tooltiptext {
+            font-size: 13px !important;
+            line-height: 1.5 !important;
+            color: #455a64 !important;
+            padding-top: 5px !important;
+            padding-bottom: 5px !important;
+        }
+        .introjs-button {
+            border-radius: 6px !important;
+            font-size: 12px !important;
+            padding: 8px 15px !important;
+            text-shadow: none !important;
+            font-weight: bold !important;
+        }
+        .introjs-nextbutton {
+            background-color: #0984e3 !important;
+            color: white !important;
+            border: none !important;
+        }
+        .introjs-prevbutton {
+            color: #2d3436 !important;
+        }
+        .introjs-helperNumberLayer {
+            display: none !important; 
+        }
+
+        /* === GAYA KONTEN SIDEBAR === */
+        .sidebar-content {
+            flex: 1;
+            overflow-y: auto;
+            overflow-x: hidden;
+            padding: 20px;
+            scrollbar-width: thin;
+        }
+        .sidebar h2 {
+            margin: 0 0 15px 0;
+            font-size: 20px;
+            text-align: center;
+            line-height: 1.3;
+        }
+        button {
+            width: 100%;
+            padding: 10px;
+            margin: 5px 0;
+            border: none;
+            border-radius: 4px;
+            font-weight: bold;
+            cursor: pointer;
+            font-size: 13px;
+            transition: 0.2s;
+            box-sizing: border-box;
+        }
+        button:hover {
+            opacity: 0.9;
+        }
+        
+        #btnTutorial {
+            background: #ff7700;
+            color: white;
+            margin-bottom: 15px;
+        }
+        
+        #btnRun {
+            background: #0984e3;
+            color: white;
+            padding: 12px;
+            font-size: 14px;
+        }
+        #btnRun:disabled {
+            background: #b2bec3;
+            cursor: not-allowed;
+        }
+        #btnReset {
+            background: #636e72;
+            color: white;
+        }
+        .legend-item {
+            display: flex;
+            align-items: center;
+            font-size: 12px;
+            margin-bottom: 4px;
+            line-height: 1.2;
+        }
+        .box {
+            width: 20px;
+            height: 10px;
+            margin-right: 8px;
+            border-radius: 2px;
+            flex-shrink: 0;
+        }
+        .info-box,
+        .toggle-box {
+            background: #f8f9fa;
+            padding: 12px 15px;
+            border-radius: 8px;
+            border: 1px solid #dfe6e9;
+            margin-bottom: 10px;
+        }
+        .toggle-box label {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            margin: 6px 0;
+            font-size: 13px;
+            cursor: pointer;
+            font-weight: bold;
+        }
+        .toggle-box input[type="checkbox"] {
+            transform: scale(1.1);
+            margin-right: 4px;
+            cursor: pointer;
+        }
+        select, input[type="text"] {
+            width: 100%;
+            padding: 9px;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+            font-family: inherit;
+            font-size: 13px;
+            color: #2d3436;
+            box-sizing: border-box;
+        }
+        select {
+            font-weight: bold;
+            cursor: pointer;
+            background: white;
+        }
+        #results {
+            display: none;
+            flex-direction: column;
+            margin-bottom: 15px;
+            flex-shrink: 0;
+        }
+        .legend-container {
+            font-size: 12px;
+            padding-top: 15px;
+            border-top: 1px solid #eee;
+            margin-top: 10px;
+        }
+        .legend-layout {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            gap: 10px;
+        }
+        
+        /* === KOTAK PENCARIAN & AUTOCOMPLETE === */
+        .search-area {
+            display: flex;
+            gap: 8px; 
+            margin-bottom: 8px;
+            align-items: stretch; 
+        }
+        .input-container {
+            position: relative;
+            flex: 1;
+            display: flex; 
+        }
+        .search-area input[type="text"] {
+            width: 100%;
+            height: 40px !important; 
+            padding: 0 12px;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+            font-size: 13px;
+            box-sizing: border-box;
+            outline: none;
+            margin: 0;
+        }
+        .search-area input[type="text"]:focus {
+            border-color: #0984e3; 
+        }
+        .search-area button {
+            width: auto;
+            height: 40px !important; 
+            margin: 0;
+            background: #2d3436;
+            color: white;
+            padding: 0 16px;
+            border-radius: 4px;
+            border: none;
+            flex-shrink: 0; 
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+        }
+        .custom-autocomplete-list {
+            position: absolute;
+            top: calc(100% + 4px); 
+            left: 0;
+            width: 100%;
+            background: #ffffff;
+            border: 1px solid #dfe6e9;
+            border-radius: 4px;
+            max-height: 200px; 
+            overflow-y: auto;
+            z-index: 9999;
+            list-style: none;
+            padding: 0;
+            margin: 0;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+            display: none;
+        }
+        .custom-autocomplete-list li {
+            padding: 10px 12px;
+            font-size: 13px;
+            cursor: pointer;
+            border-bottom: 1px solid #f4f6f8;
+            color: #2d3436;
+            transition: 0.1s;
+        }
+        .custom-autocomplete-list li:last-child {
+            border-bottom: none;
+        }
+        .custom-autocomplete-list li:hover {
+            background: #0984e3;
+            color: white;
+        }
+
+        .set-point-btn {
+            display: flex;
+            gap: 5px;
+        }
+        .set-point-btn button {
+            margin: 0;
+            padding: 8px;
+            font-size: 12px;
+            flex: 1;
+        }
+        .road-popup {
+            font-size: 12px;
+            line-height: 1.4;
+            color: #2d3436;
+        }
+        .road-popup b {
+            color: #000;
+        }
+        .status-aman {
+            color: #27ae60;
+            font-weight: bold;
+        }
+        .status-putus {
+            color: #c0392b;
+            font-weight: bold;
+        }
+
+        .route-legend {
+            display: flex;
+            align-items: center;
+            justify-content: space-around;
+            margin: 10px 0 5px;
+            padding: 8px;
+            background: #ffffff;
+            border-radius: 6px;
+            border: 1px solid #dfe6e9;
+        }
+        .legend-route-item {
+            display: flex;
+            align-items: center;
+            font-size: 12px;
+            gap: 8px;
+        }
+        .line-sample {
+            width: 30px;
+            height: 4px;
+            border-radius: 2px;
+        }
+        .line-solid {
+            background: #c71585;
+        }
+        .line-dashed {
+            background: repeating-linear-gradient(90deg, #6a0dad, #6a0dad 8px, transparent 8px, transparent 16px);
+            height: 4px;
+        }
+
+        .time-card {
+            display: flex;
+            flex-direction: column;
+            background: white;
+            padding: 0;
+            border-radius: 12px;
+            margin-top: 10px;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.08);
+            border: 1px solid #e1e8ed;
+            overflow: hidden;
+        }
+        .time-card-content {
+            display: flex;
+            width: 100%;
+            align-items: stretch;
+        }
+        .time-card-item {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 14px 8px;
+            background: #fafbfc;
+            transition: background 0.2s;
+            text-align: center;
+        }
+        .time-card-item:first-child {
+            border-right: 1px solid #e1e8ed;
+        }
+        .time-card-item:hover {
+            background: #f0f4f8;
+        }
+        .time-label {
+            font-size: 12px;
+            color: #000000;
+            margin-bottom: 6px;
+            display: flex;
+            align-items: center;
+            gap: 4px;
+        }
+        .time-value {
+            font-size: 18px;
+            font-weight: 700;
+            line-height: 1.2;
+        }
+        .time-detail {
+            font-size: 11px;
+            color: #000000;
+            margin-top: 4px;
+        }
+        .route-note {
+            font-size: 11px;
+            color: #2d3436;
+            text-align: left;
+            margin-top: 10px;
+            padding: 10px;
+            background: #fdfae5;
+            border-left: 3px solid #f1c40f;
+            border-radius: 4px;
+            line-height: 1.4;
+        }
+        .icon-legend {
+            display: inline-block;
+            width: 20px;
+            text-align: center;
+        }
+        .custom-marker {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            width: 30px;
+            height: 30px;
+            border-radius: 50% 50% 50% 0;
+            background: #27ae60;
+            color: white;
+            font-weight: bold;
+            font-size: 14px;
+            transform: rotate(-45deg);
+            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.3);
+            border: 2px solid white;
+        }
+        .marker-start .custom-marker { background: #c0392b; }
+        .marker-end .custom-marker { background: #27ae60; }
+        .custom-marker span {
+            transform: rotate(45deg);
+            display: inline-block;
+        }
+
+        #networkLoading {
+            display: none;
+            font-size: 12px;
+            color: #e67e22;
+            margin: 5px 0;
+            text-align: center;
+            font-style: italic;
+        }
+        .tip-text {
+            font-size: 11px; 
+            color: #7f8c8d; 
+            margin-top: 8px; 
+            text-align: center;
+            font-style: italic;
+        }
+    </style>
+</head>
+<body>
+    <div id="map" data-title="Langkah Akhir: Eksplorasi Peta" data-intro="Anda dapat menggeser peta, serta melakukan zoom in/out menggunakan tombol atau scroll mouse. Gunakan eksplorasi ini untuk melihat area sekitar sebelum menentukan titik asal dan tujuan." data-step="7" data-position="auto"></div>
+    <div class="sidebar">
+        <div class="sidebar-content">
+            <div style="text-align: center; margin-bottom: 15px;">
+                <img src="images/logo.png" alt="Logo UGM" style="width: 150px; height: auto;" />
+            </div>
+
+            <h2>Analisis Mobilitas Banjir di Aceh Utara</h2>
+            
+            <button id="btnTutorial" onmousedown="document.querySelector('.sidebar-content').scrollTop = 0;">Panduan Penggunaan</button>
+
+            <div class="info-box">
+                <div data-title="Langkah 1: Cari Lokasi atau Klik Peta" data-intro="Ketik nama bangunan atau klik langsung di peta untuk memilih lokasi. Marker kuning akan muncul sebagai titik pilihan." data-step="1" data-position="top">
+                    <div style="font-size: 13px; font-weight: bold; margin-bottom: 8px; color: #2d3436;">Cari Fasilitas / Bangunan:</div>
+                    
+                    <div class="search-area">
+                        <div class="input-container">
+                            <input type="text" id="searchInput" placeholder="Ketik atau pilih bangunan..." autocomplete="off" />
+                            <ul id="customDropdown" class="custom-autocomplete-list"></ul>
+                        </div>
+                        <button id="btnSearch">Cari</button>
+                    </div>
+                </div>
+                
+                <hr style="border: 0; border-top: 1px dashed #dfe6e9; margin: 12px 0;">
+                
+                <div data-title="Langkah 2: Tentukan Peran Titik" data-intro="Klik tombol di bawah untuk menetapkan titik pilihan (kuning) sebagai Asal (A) atau Tujuan (B). Anda bebas menentukannya kapan saja." data-step="2" data-position="top">
+                    <div class="set-point-btn">
+                        <button id="btnSetStart" style="background: #c0392b; color: white;">Jadikan Asal</button>
+                        <button id="btnSetEnd" style="background: #27ae60; color: white;">Jadikan Tujuan</button>
+                    </div>
+                    <div class="tip-text">
+                        💡 Klik di peta → titik pilihan (kuning) &nbsp; | &nbsp; Lalu tentukan perannya di sini.
+                    </div>
+                </div>
+            </div>
+
+            <div class="info-box" data-title="Langkah 3: Pilih Moda" data-intro="Pilih apakah Anda menggunakan Mobil atau Motor. Rute akan otomatis memperbarui kalkulasi jika ada rute yang sedang aktif." data-step="3" data-position="top">
+                <div style="font-size: 13px; font-weight: bold; margin-bottom: 5px; color: #2d3436;">Pilih Moda Transportasi:</div>
+                <select id="vehicleType">
+                    <option value="mobil">🚗 Mobil (Toleransi Genangan s/d 20 cm)</option>
+                    <option value="motor">🏍️ Motor (Toleransi Genangan s/d 15 cm)</option>
+                </select>
+            </div>
+
+            <div data-title="Langkah 4: Analisis Rute" data-intro="Klik tombol ini untuk menjalankan algoritma pencarian rute aman terbaik!" data-step="4" data-position="top">
+                <button id="btnRun">ANALISIS RUTE OPTIMAL</button>
+            </div>
+            <div id="networkLoading">⏳ Memuat data jaringan jalan…</div>
+            
+            <button id="btnReset" data-title="Langkah 5: Reset Peta" data-intro="Gunakan tombol ini untuk menghapus rute yang tergambar dan mengulang pencarian dari awal." data-step="5" data-position="top">RESET PETA</button>
+
+            <div id="results">
+                <div class="toggle-box">
+                    <div style="font-size: 14px; color: #000000; margin-bottom: 8px;"><b>Tampilkan Hasil Rute:</b></div>
+                    <label style="color: #c71585;">
+                        <input type="checkbox" id="toggleShortest" checked />
+                        <span class="icon-legend">📏</span> Rute Terpendek (Jarak Minimum)
+                    </label>
+                    <label style="color: #6a0dad;">
+                        <input type="checkbox" id="toggleFastest" checked />
+                        <span class="icon-legend">⏱️</span> Rute Tercepat (Waktu Minimum)
+                    </label>
+                    <div class="route-legend">
+                        <div class="legend-route-item">
+                            <div class="line-sample line-solid"></div>
+                            <span style="color:#c71585;">Terpendek</span>
+                        </div>
+                        <div class="legend-route-item">
+                            <div class="line-sample line-dashed"></div>
+                            <span style="color:#6a0dad;">Tercepat</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div id="timeInfo" class="time-card"></div>
+                <div id="routeNote" class="route-note"></div>
+            </div>
+
+            <div class="legend-container">
+                <div class="legend-layout">
+                    <div style="flex: 1;">
+                        <div style="margin-bottom: 6px;"><strong>Informasi Dasar:</strong></div>
+                        <div class="legend-item"><div class="box" style="background:#c0c0c0; height: 3px; opacity: 0.8; margin-top: 5px;"></div> Jaringan Jalan</div>
+                        <div class="legend-item"><div class="box" style="background:#c0c0c0; opacity: 0.6;"></div> Bangunan</div>
+                        <div class="legend-item"><div class="box" style="border: 2px dashed #e67e22; background: none; height: 6px;"></div> Batas Kabupaten</div>
+                    </div>
+                    <div style="flex: 1;">
+                        <div style="margin-bottom: 6px;"><strong>Kedalaman Genangan:</strong></div>
+                        <div class="legend-item"><div class="box" style="background:#b8e2f2; opacity: 0.8;"></div> &lt; 10 cm (Dangkal)</div>
+                        <div class="legend-item"><div class="box" style="background:#5dade2; opacity: 0.8;"></div> 10 – 20 cm (Sedang)</div>
+                        <div class="legend-item"><div class="box" style="background:#2e86c1; opacity: 0.8;"></div> &gt; 20 cm (Dalam)</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script src="https://unpkg.com/intro.js/minified/intro.min.js"></script>
+    
+    <script>
+    // ======================== KONSTANTA & VARIABEL GLOBAL ========================
+    const INTERSECTION_PENALTY = 30.0;
+    const MAX_SNAP_DIST = 500; // meter
+    const USE_SNAP_TO_EDGE = true;   // SELALU snap ke edge (jalan terdekat)
+
+    var map = L.map('map', { preferCanvas: true, zoomControl: false }).setView([5.04, 97.16], 11);
+    L.control.zoom({ position: 'topleft' }).addTo(map);
+
+    var start = null, end = null;
+    var startMarker = null, endMarker = null, selectedMarker = null; // Ganti nama searchMarker menjadi selectedMarker
+    var lShortestLayer = L.layerGroup().addTo(map);
+    var lFastestLayer = L.layerGroup().addTo(map);
+    var buildingLayer = L.layerGroup();
+    var roadLayer = L.layerGroup();
+
+    var routingData = { nodes: {}, edges: {} };
+    var buildingData = null, nodeDegrees = {};
+    let networkReady = false;
+    let analysisDone = false;
+
+    // === SNAP TO EDGE: data penyimpanan state snap ===
+    let allEdges = [];
+    let tempSnapRegistry = {
+        start: null,
+        end: null,
+        _directEdges: []
+    };
+
+    // ======================== BASEMAPS GOOGLE & ESRI ========================
+    var googleStreets = L.tileLayer('http://{s}.google.com/vt/lyrs=m&x={x}&y={y}&z={z}', {
+        maxZoom: 20,
+        subdomains: ['mt0', 'mt1', 'mt2', 'mt3'],
+        attribution: '&copy; Google Maps'
+    });
+
+    var googleHybrid = L.tileLayer('http://{s}.google.com/vt/lyrs=s,h&x={x}&y={y}&z={z}', {
+        maxZoom: 20,
+        subdomains: ['mt0', 'mt1', 'mt2', 'mt3'],
+        attribution: '&copy; Google Maps'
+    });
+
+    var satelitEsri = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
+        maxZoom: 19,
+        attribution: 'Tiles &copy; Esri'
+    });
+
+    var osm = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19 });
+
+    googleStreets.addTo(map);
+
+    var baseMaps = {
+        "Google Maps (Street)": googleStreets,
+        "Google Maps (Satelit+Jalan)": googleHybrid,
+        "OpenStreetMap": osm,
+        "Esri Satellite": satelitEsri
+    };
+    L.control.layers(baseMaps, null, { position: 'topright' }).addTo(map);
+
+    map.attributionControl.addAttribution('<span style="border-left: 1px solid #ccc; padding-left: 5px;"><b style="color:#0984e3;">Tim Pembuat:</b> Riyana, Faruq, Dian, Jasmine, Indira (S2 Teknik Geomatika UGM)</span>');
+
+    // ======================== FUNGSI PEMBANTU ========================
+    function createCustomIcon(color, letter) {
+        return L.divIcon({
+            className: 'custom-marker-container',
+            html: `<div class="custom-marker" style="background:${color};"><span>${letter}</span></div>`,
+            iconSize: [30, 30],
+            iconAnchor: [15, 30],
+            popupAnchor: [0, -25]
+        });
+    }
+
+    // --- SNAP TO EDGE: helper functions ---
+    function haversine(p1, p2) {
+        let R = 6371000;
+        let dLat = (p2[0] - p1[0]) * Math.PI / 180;
+        let dLon = (p2[1] - p1[1]) * Math.PI / 180;
+        let a = Math.sin(dLat/2)**2 + Math.cos(p1[0]*Math.PI/180)*Math.cos(p2[0]*Math.PI/180)*Math.sin(dLon/2)**2;
+        return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+    }
+
+    function projectPointOnSegment(p, a, b) {
+        let dx = b[0] - a[0], dy = b[1] - a[1];
+        let lenSq = dx*dx + dy*dy;
+        if (lenSq === 0) return { point: a, distance: haversine(p, a), t: 0 };
+        let t = ((p[0] - a[0]) * dx + (p[1] - a[1]) * dy) / lenSq;
+        t = Math.max(0, Math.min(1, t));
+        let proj = [a[0] + t * dx, a[1] + t * dy];
+        return { point: proj, distance: haversine(p, proj), t };
+    }
+
+    function findNearestEdge(latlng) {
+        let minDist = Infinity, best = null;
+        let p = [latlng.lat, latlng.lng];
+        for (let item of allEdges) {
+            let coords = item.coords;
+            for (let i = 0; i < coords.length - 1; i++) {
+                let a = coords[i], b = coords[i+1];
+                let proj = projectPointOnSegment(p, a, b);
+                if (proj.distance < minDist) {
+                    minDist = proj.distance;
+                    best = {
+                        u: item.u,
+                        v: item.v,
+                        edgeData: item.edge,
+                        projPoint: proj.point,
+                        distance: proj.distance,
+                        t: proj.t,
+                        segIdx: i
+                    };
+                }
+            }
+        }
+        return best;
+    }
+
+    function applySnapToEdge(latlng, role) {
+        if (tempSnapRegistry[role]) rollbackSnap(role);
+
+        let nearest = findNearestEdge(latlng);
+        if (!nearest || nearest.distance > MAX_SNAP_DIST) {
+            alert(`Titik terlalu jauh dari jalan (> ${MAX_SNAP_DIST} m).`);
+            return null;
+        }
+
+        let { u, v, edgeData, projPoint, t, segIdx } = nearest;
+
+        let fullEdgeCoords = edgeData.coords;
+        let cumDist = 0;
+        for (let i = 0; i < segIdx; i++) {
+            cumDist += haversine(fullEdgeCoords[i], fullEdgeCoords[i+1]);
+        }
+        if (segIdx < fullEdgeCoords.length - 1) {
+            cumDist += t * haversine(fullEdgeCoords[segIdx], fullEdgeCoords[segIdx+1]);
+        }
+        let globalT = cumDist / edgeData.length;
+
+        let tempNodeId = `snap_${role}_${Date.now()}`;
+        
+        routingData.nodes[tempNodeId] = projPoint;
+
+        let fullLength = edgeData.length;
+        let segLen1 = fullLength * t;
+        let segLen2 = fullLength - segLen1;
+
+        function interp(val) { return val * t; }
+        function interpRest(val) { return val * (1 - t); }
+
+        let e1 = { ...edgeData };
+        let e2 = { ...edgeData };
+        e1.length = segLen1;
+        e2.length = segLen2;
+        ['cost_time_motor','cost_time_mobil','cost_length_motor','cost_length_mobil'].forEach(k => {
+            e1[k] = interp(edgeData[k]);
+            e2[k] = interpRest(edgeData[k]);
+        });
+
+        let fullCoords = edgeData.coords;
+        let coords1 = fullCoords.slice(0, segIdx + 1);
+        coords1.push(projPoint);
+        let coords2 = [projPoint];
+        coords2.push(...fullCoords.slice(segIdx + 1));
+        e1.coords = coords1;
+        e2.coords = coords2;
+
+        delete routingData.edges[u][v];
+        delete routingData.edges[v][u];
+
+        if (!routingData.edges[u]) routingData.edges[u] = {};
+        routingData.edges[u][tempNodeId] = e1;
+        if (!routingData.edges[tempNodeId]) routingData.edges[tempNodeId] = {};
+        routingData.edges[tempNodeId][u] = { ...e1, coords: [...coords1].reverse() };
+
+        routingData.edges[tempNodeId][v] = e2;
+        if (!routingData.edges[v]) routingData.edges[v] = {};
+        routingData.edges[v][tempNodeId] = { ...e2, coords: [...coords2].reverse() };
+
+        nodeDegrees[u] = Object.keys(routingData.edges[u] || {}).length;
+        nodeDegrees[v] = Object.keys(routingData.edges[v] || {}).length;
+        nodeDegrees[tempNodeId] = 2;
+
+        tempSnapRegistry[role] = {
+            u, v,
+            tempNode: tempNodeId,
+            originalEdge: edgeData,
+            fullCoords: fullCoords,
+            globalT: globalT,
+            fullLength: edgeData.length
+        };
+
+        return {
+            nodeId: tempNodeId,
+            latlng: L.latLng(projPoint[0], projPoint[1])
+        };
+    }
+
+    function rollbackSnap(role) {
+        let info = tempSnapRegistry[role];
+        if (!info) return;
+        let { u, v, tempNode, originalEdge, fullCoords } = info;
+
+        if (tempSnapRegistry._directEdges) {
+            let edgesToRemove = tempSnapRegistry._directEdges.filter(
+                e => e.n1 === info.tempNode || e.n2 === info.tempNode
+            );
+            edgesToRemove.forEach(e => {
+                delete routingData.edges[e.n1]?.[e.n2];
+                delete routingData.edges[e.n2]?.[e.n1];
+            });
+            tempSnapRegistry._directEdges = tempSnapRegistry._directEdges.filter(
+                e => !edgesToRemove.includes(e)
+            );
+        }
+
+        delete routingData.nodes[tempNode];
+        delete routingData.edges[tempNode];
+        if (routingData.edges[u]) delete routingData.edges[u][tempNode];
+        if (routingData.edges[v]) delete routingData.edges[v][tempNode];
+
+        if (!routingData.edges[u]) routingData.edges[u] = {};
+        routingData.edges[u][v] = originalEdge;
+        if (!routingData.edges[v]) routingData.edges[v] = {};
+        routingData.edges[v][u] = { ...originalEdge, coords: [...originalEdge.coords].reverse() };
+
+        nodeDegrees[u] = Object.keys(routingData.edges[u] || {}).length;
+        nodeDegrees[v] = Object.keys(routingData.edges[v] || {}).length;
+        tempSnapRegistry[role] = null;
+    }
+
+    // ====== TAMBAHAN: Koneksi langsung jika start & end di edge yang sama ======
+    function getSubrouteCoords(fullCoords, t1, t2) {
+        if (t1 > t2) { let tmp = t1; t1 = t2; t2 = tmp; }
+        let dists = [0];
+        for (let i = 1; i < fullCoords.length; i++) {
+            dists.push(dists[i-1] + haversine(fullCoords[i-1], fullCoords[i]));
+        }
+        let totalL = dists[dists.length-1];
+        let target1 = t1 * totalL;
+        let target2 = t2 * totalL;
+
+        function interpolate(target) {
+            for (let i = 0; i < dists.length-1; i++) {
+                if (target >= dists[i] && target <= dists[i+1]) {
+                    let segLen = dists[i+1] - dists[i];
+                    let frac = segLen ? (target - dists[i]) / segLen : 0;
+                    let lat = fullCoords[i][0] + frac * (fullCoords[i+1][0] - fullCoords[i][0]);
+                    let lng = fullCoords[i][1] + frac * (fullCoords[i+1][1] - fullCoords[i][1]);
+                    return { point: [lat, lng], idx: i, frac };
+                }
+            }
+            return { point: fullCoords[fullCoords.length-1], idx: fullCoords.length-2, frac: 1 };
+        }
+
+        let startInfo = interpolate(target1);
+        let endInfo = interpolate(target2);
+        let result = [startInfo.point];
+
+        for (let i = startInfo.idx + 1; i <= endInfo.idx; i++) {
+            result.push(fullCoords[i]);
+        }
+        let last = result[result.length-1];
+        if (last[0] !== endInfo.point[0] || last[1] !== endInfo.point[1]) {
+            result.push(endInfo.point);
+        }
+        return result;
+    }
+
+    function handleSameEdgeDirectConnection() {
+        let sReg = tempSnapRegistry.start;
+        let eReg = tempSnapRegistry.end;
+        if (!sReg || !eReg) return;
+
+        let sameEdge = (sReg.u === eReg.u && sReg.v === eReg.v) ||
+                       (sReg.u === eReg.v && sReg.v === eReg.u);
+        if (!sameEdge) return;
+
+        let L = sReg.fullLength;
+        let t1 = sReg.globalT;
+        let t2 = eReg.globalT;
+        let len = Math.abs(t2 - t1) * L;
+
+        let orig = sReg.originalEdge;
+        let cost_time_motor = Math.abs(t2 - t1) * orig.cost_time_motor;
+        let cost_time_mobil = Math.abs(t2 - t1) * orig.cost_time_mobil;
+        let cost_length_motor = Math.abs(t2 - t1) * orig.cost_length_motor;
+        let cost_length_mobil = Math.abs(t2 - t1) * orig.cost_length_mobil;
+
+        let coords = getSubrouteCoords(sReg.fullCoords, t1, t2);
+        let edgeData = {
+            coords: coords,
+            length: len,
+            is_flooded: orig.is_flooded,
+            depth: orig.depth,
+            cost_time_motor,
+            cost_time_mobil,
+            cost_length_motor,
+            cost_length_mobil
+        };
+
+        let nStart = sReg.tempNode;
+        let nEnd = eReg.tempNode;
+
+        if (!routingData.edges[nStart]) routingData.edges[nStart] = {};
+        if (!routingData.edges[nEnd]) routingData.edges[nEnd] = {};
+        routingData.edges[nStart][nEnd] = edgeData;
+        routingData.edges[nEnd][nStart] = { ...edgeData, coords: [...coords].reverse() };
+
+        if (!tempSnapRegistry._directEdges) tempSnapRegistry._directEdges = [];
+        tempSnapRegistry._directEdges.push({ n1: nStart, n2: nEnd });
+    }
+
+    function getNearestNode(latlng) {
+        let min = null, minD = Infinity;
+        for (let id in routingData.nodes) {
+            let n = routingData.nodes[id];
+            let d = Math.pow(n[0] - latlng.lat, 2) + Math.pow(n[1] - latlng.lng, 2);
+            if (d < minD) { minD = d; min = id; }
+        }
+        return min;
+    }
+
+    function runDijkstra(startId, endId, mode) {
+        let dist = {}, prev = {}, pq = [];
+        for (let id in routingData.nodes) dist[id] = Infinity;
+        dist[startId] = 0;
+        pq.push({ id: startId, d: 0 });
+        let vehicle = document.getElementById('vehicleType').value;
+
+        while (pq.length) {
+            pq.sort((a, b) => a.d - b.d);
+            let curr = pq.shift().id;
+
+            if (curr === endId) break;
+
+            let neighbors = routingData.edges[curr];
+            if (!neighbors) continue;
+            let isIntersection = (curr !== startId && curr !== endId && nodeDegrees[curr] > 2);
+
+            for (let n in neighbors) {
+                let edge = neighbors[n];
+                let weight = mode === 'distance' ? edge[`cost_length_${vehicle}`] : edge[`cost_time_${vehicle}`];
+
+                if (weight >= 999999) continue;
+                if (mode === 'time' && isIntersection) weight += INTERSECTION_PENALTY;
+
+                let alt = dist[curr] + weight;
+                if (alt < dist[n]) {
+                    dist[n] = alt;
+                    prev[n] = curr;
+                    pq.push({ id: n, d: alt });
+                }
+            }
+        }
+
+        if (dist[endId] === Infinity) return null;
+
+        let coords = [], curr = endId, totalDist = 0, totalTime = 0;
+        while (prev[curr]) {
+            let p = prev[curr], edge = routingData.edges[p][curr];
+            totalDist += edge.length;
+            totalTime += edge[`cost_time_${vehicle}`];
+            if (p !== startId && p !== endId && nodeDegrees[p] > 2) totalTime += INTERSECTION_PENALTY;
+
+            coords.unshift(...edge.coords);
+            curr = p;
+        }
+        return { coords, distance: totalDist / 1000, time: totalTime };
+    }
+
+    function formatTime(seconds) {
+        let m = seconds / 60;
+        let h = Math.floor(m / 60);
+        let mn = Math.round(m % 60);
+        return h > 0 ? `${h}j ${mn}m` : `${mn} menit`;
+    }
+
+    function clearResults() {
+        lShortestLayer.clearLayers();
+        lFastestLayer.clearLayers();
+        document.getElementById('results').style.display = 'none';
+        document.getElementById('timeInfo').innerHTML = '';
+        document.getElementById('routeNote').innerHTML = '';
+    }
+
+    // ======================== LOAD DATA ========================
+    fetch('data/boundary.geojson').then(r => r.json()).then(data => {
+        L.geoJSON(data, { style: { color: '#e67e22', weight: 3, dashArray: '5, 10', fillOpacity: 0, interactive: false } }).addTo(map);
+    }).catch(e => console.log('Boundary fail'));
+
+    // Data kedalaman banjir – tampilkan TOOLTIP saja, bukan popup, klik tidak mengganggu
+    fetch('data/aceh_depth.geojson').then(r => r.json()).then(data => {
+        L.geoJSON(data, {
+            style: f => {
+                let d = f.properties.depth, fc;
+                if (d < 10) fc = '#b8e2f2'; else if (d <= 20) fc = '#5dade2'; else fc = '#2e86c1';
+                return { color: '#2c3e50', weight: 1, dashArray: '3, 3', fillColor: fc, fillOpacity: 0.6 };
+            },
+            onEachFeature: (f, l) => {
+                l.bindTooltip(`<b>Kedalaman Genangan:</b> ${f.properties.depth} cm`, { sticky: true, direction: 'top' });
+            }
+        }).addTo(map);
+    }).catch(e => console.log('Depth fail'));
+
+    fetch('data/buildings.geojson').then(r => r.json()).then(data => {
+        buildingData = data;
+        window.buildingData = data;
+        L.geoJSON(data, {
+            style: { color: '#95a5a6', fillColor: '#95a5a6', weight: 0.5, fillOpacity: 0.6 },
+            onEachFeature: (f, l) => {
+                let popupName = toTitleCase(f.properties.name || "Bangunan Tanpa Nama");
+                l.bindPopup("<b>" + popupName + "</b>");
+                // Klik pada bangunan: jadikan titik pilihan (kuning)
+                l.on('click', e => setSelectedMarker(e.latlng));
+            }
+        }).addTo(buildingLayer);
+        buildingLayer.addTo(map);
+        populateDropdownData(); 
+    }).catch(e => console.log('Buildings fail'));
+
+    function loadRoadNetwork() {
+        const loadingEl = document.getElementById('networkLoading');
+        const runBtn = document.getElementById('btnRun');
+        if (loadingEl) loadingEl.style.display = 'block';
+        if (runBtn) runBtn.disabled = true;
+
+        fetch('data/jaringan_jalan_webgis_intersection.geojson').then(r => r.json()).then(data => {
+            const features = data.features;
+            const total = features.length;
+            let i = 0;
+            
+            function processChunk() {
+                const batchSize = 1000;
+                const end = Math.min(i + batchSize, total);
+                for (; i < end; i++) {
+                    const f = features[i];
+                    let coords = f.geometry.coordinates;
+                    let p = f.properties;
+
+                    if (!coords || coords.length < 2) continue;
+
+                    let startCoord = coords[0], endCoord = coords[coords.length - 1];
+                    let u = `${startCoord[1].toFixed(6)},${startCoord[0].toFixed(6)}`;
+                    let v = `${endCoord[1].toFixed(6)},${endCoord[0].toFixed(6)}`;
+
+                    routingData.nodes[u] = [startCoord[1], startCoord[0]];
+                    routingData.nodes[v] = [endCoord[1], endCoord[0]];
+
+                    let edgeData = {
+                        coords: coords.map(c => [c[1], c[0]]),
+                        length: p.length_m,
+                        is_flooded: p.flood_depth > 0,
+                        depth: p.flood_depth || 0,
+                        cost_time_motor: p.cost_time_motor,
+                        cost_time_mobil: p.cost_time_mobil,
+                        cost_length_motor: p.cost_length_motor,
+                        cost_length_mobil: p.cost_length_mobil
+                    };
+
+                    if (!routingData.edges[u]) routingData.edges[u] = {};
+                    if (!routingData.edges[v]) routingData.edges[v] = {};
+
+                    routingData.edges[u][v] = edgeData;
+                    routingData.edges[v][u] = { ...edgeData, coords: [...edgeData.coords].reverse() };
+
+                    let outline = L.polyline(edgeData.coords, { color: '#c8c8c8', weight: 1, opacity: 0.9, interactive: false });
+                    let line = L.polyline(edgeData.coords, { color: '#c8c8c8', weight: 1, opacity: 0.1, interactive: true });
+                    outline.addTo(roadLayer); line.addTo(roadLayer);
+
+                    // Klik pada jalan = titik pilihan (kuning)
+                    line.on('click', e => setSelectedMarker(e.latlng));
+                    outline.on('click', e => setSelectedMarker(e.latlng));
+                }
+
+                if (i < total) {
+                    requestAnimationFrame(processChunk);
+                } else {
+                    allEdges = [];
+                    for (let u in routingData.edges) {
+                        for (let v in routingData.edges[u]) {
+                            if (u < v) {
+                                allEdges.push({
+                                    u, v,
+                                    coords: routingData.edges[u][v].coords,
+                                    edge: routingData.edges[u][v]
+                                });
+                            }
+                        }
+                    }
+
+                    for (let u in routingData.edges) nodeDegrees[u] = Object.keys(routingData.edges[u]).length;
+                    roadLayer.addTo(map);
+                    networkReady = true;
+                    if (loadingEl) loadingEl.style.display = 'none';
+                    if (runBtn) runBtn.disabled = false;
+                }
+            }
+            requestAnimationFrame(processChunk);
+        }).catch(err => {
+            if (loadingEl) loadingEl.textContent = '❌ Gagal memuat jaringan jalan.';
+        });
+    }
+    setTimeout(loadRoadNetwork, 100);
+
+    // ======================== LOGIKA CUSTOM DROPDOWN PENCARIAN ========================
+    var allBuildingNames = [];
+    var searchInput = document.getElementById('searchInput');
+    var customDropdown = document.getElementById('customDropdown');
+
+    function toTitleCase(str) {
+        return str.toLowerCase().replace(/\b[a-z]/g, function(letter) {
+            return letter.toUpperCase();
+        });
+    }
+
+    function populateDropdownData() {
+        if (window.buildingData && window.buildingData.features) {
+            var uniqueNames = new Set();
+            window.buildingData.features.forEach(function(f) {
+                var name = f.properties.name;
+                if (name && name.trim() !== '') {
+                    var cleanName = name.trim();
+                    if (/[a-zA-Z]{2,}/.test(cleanName)) {
+                        uniqueNames.add(toTitleCase(cleanName));
+                    }
+                }
+            });
+            allBuildingNames = Array.from(uniqueNames).sort((a, b) => a.localeCompare(b, 'id'));
+        }
+    }
+
+    function renderDropdown(filterText) {
+        customDropdown.innerHTML = '';
+        var filtered = filterText.trim() === '' 
+            ? allBuildingNames 
+            : allBuildingNames.filter(name => name.toLowerCase().includes(filterText.toLowerCase()));
+        
+        if (filtered.length === 0) {
+            var li = document.createElement('li');
+            li.textContent = "Tidak ada hasil";
+            li.style.color = "#95a5a6";
+            li.style.cursor = "default";
+            li.style.background = "white";
+            customDropdown.appendChild(li);
+        } else {
+            for (var i = 0; i < filtered.length; i++) {
+                let name = filtered[i];
+                var li = document.createElement('li');
+                li.textContent = name;
+                li.onclick = function() {
+                    searchInput.value = name;
+                    customDropdown.style.display = 'none';
+                };
+                customDropdown.appendChild(li);
+            }
+        }
+        customDropdown.style.display = 'block';
+    }
+
+    searchInput.addEventListener('focus', function() { renderDropdown(this.value); });
+    searchInput.addEventListener('input', function() { renderDropdown(this.value); });
+    document.addEventListener('click', function(e) {
+        if (!searchInput.contains(e.target) && !customDropdown.contains(e.target)) {
+            customDropdown.style.display = 'none';
+        }
+    });
+
+    // ======================== FUNGSI TITIK PILIHAN (BEbas Urutan) ========================
+    function setSelectedMarker(latlng) {
+        // Hapus marker pilihan sebelumnya
+        if (selectedMarker) {
+            map.removeLayer(selectedMarker);
+            selectedMarker = null;
+        }
+        // Buat marker kuning di lokasi klik
+        selectedMarker = L.marker(latlng, { 
+            icon: createCustomIcon('#f1c40f', '📍') 
+        }).addTo(map).bindPopup("📍 Titik Pilihan").openPopup();
+    }
+
+    // Pencarian bangunan
+    document.getElementById('btnSearch').onclick = () => {
+        customDropdown.style.display = 'none';
+        let q = document.getElementById('searchInput').value.trim().toLowerCase();
+        if (!buildingData) return alert("Sistem masih memuat data bangunan...");
+        if (!q) return alert("Masukkan kata kunci pencarian.");
+        
+        let found = buildingData.features.find(f => f.properties.name && f.properties.name.toLowerCase().includes(q));
+        if (found) {
+            let coords = found.geometry.coordinates[0][0];
+            let latlng = L.latLng(coords[1], coords[0]);
+            setSelectedMarker(latlng);
+            map.setView(latlng, 16);
+            if (window.innerWidth <= 768) document.getElementById('map').scrollIntoView({ behavior: 'smooth' });
+        } else alert("Lokasi tidak ditemukan!");
+    };
+
+    // ======================== TOMBOL ASAL / TUJUAN ========================
+    document.getElementById('btnSetStart').onclick = () => {
+        if (!selectedMarker) return alert("Silakan pilih lokasi dulu (klik peta atau cari)!");
+        let latlng = selectedMarker.getLatLng();
+        rollbackSnap('start');
+        if (startMarker) { map.removeLayer(startMarker); startMarker = null; }
+        
+        let snapResult = applySnapToEdge(latlng, 'start');
+        if (!snapResult) return;
+        start = snapResult.latlng;
+        startMarker = L.marker(start, { icon: createCustomIcon('#c0392b', 'A') })
+            .addTo(map).bindPopup("Titik Asal").openPopup();
+    };
+
+    document.getElementById('btnSetEnd').onclick = () => {
+        if (!selectedMarker) return alert("Silakan pilih lokasi dulu (klik peta atau cari)!");
+        let latlng = selectedMarker.getLatLng();
+        rollbackSnap('end');
+        if (endMarker) { map.removeLayer(endMarker); endMarker = null; }
+        
+        let snapResult = applySnapToEdge(latlng, 'end');
+        if (!snapResult) return;
+        end = snapResult.latlng;
+        endMarker = L.marker(end, { icon: createCustomIcon('#27ae60', 'B') })
+            .addTo(map).bindPopup("Titik Tujuan").openPopup();
+    };
+
+    // ======================== ANALISIS RUTE ========================
+    document.getElementById('btnRun').onclick = () => {
+        if (!networkReady) return alert("Jaringan jalan masih dimuat. Tunggu sebentar.");
+        if (!start || !end) return alert("Tentukan titik asal dan tujuan terlebih dahulu.");
+
+        handleSameEdgeDirectConnection();
+
+        let sNode = (tempSnapRegistry.start && tempSnapRegistry.start.tempNode) ? tempSnapRegistry.start.tempNode : getNearestNode(start);
+        let eNode = (tempSnapRegistry.end && tempSnapRegistry.end.tempNode) ? tempSnapRegistry.end.tempNode : getNearestNode(end);
+
+        let shortest = runDijkstra(sNode, eNode, 'distance');
+        let fastest = runDijkstra(sNode, eNode, 'time');
+
+        lShortestLayer.clearLayers(); lFastestLayer.clearLayers();
+        document.getElementById('results').style.display = 'flex';
+
+        if (!shortest) {
+            clearResults();
+            return alert("Tidak ada rute yang aman untuk kendaraan ini di lokasi tersebut.");
+        }
+
+        L.polyline(shortest.coords, { color: '#c71585', weight: 5, opacity: 0.9 }).addTo(lShortestLayer);
+
+        let fAvailable = fastest !== null;
+        let fCoords = fAvailable ? fastest.coords : shortest.coords;
+        let fTime = fAvailable ? fastest.time : shortest.time;
+
+        L.polyline(fCoords, { color: '#6a0dad', weight: 5, opacity: 0.9, dashArray: '10, 10' }).addTo(lFastestLayer);
+        
+        if (window.innerWidth <= 768) {
+            document.getElementById('map').scrollIntoView({ behavior: 'smooth' });
+        }
+        map.fitBounds(L.polyline(fCoords).getBounds());
+
+        let vehicleChoice = document.getElementById('vehicleType').value;
+        let vehicleLabel = vehicleChoice === 'mobil' ? '🚗 Mobil' : '🏍️ Motor';
+
+        document.getElementById('timeInfo').innerHTML = `
+            <div style="background: #f8f9fa; padding: 10px; text-align: center; font-size: 13px; font-weight: bold; border-bottom: 1px solid #e1e8ed; color: #2d3436;">
+                Hasil Rute: ${vehicleLabel}
+            </div>
+            <div class="time-card-content">
+                <div class="time-card-item">
+                    <span class="time-label">📏 Terpendek</span>
+                    <span class="time-value" style="color:#c71585;">± ${formatTime(shortest.time)}</span>
+                    <span class="time-detail">${shortest.distance.toFixed(1)} km</span>
+                </div>
+                <div class="time-card-item">
+                    <span class="time-label">⏱️ Tercepat</span>
+                    <span class="time-value" style="color:#6a0dad;">± ${formatTime(fTime)}</span>
+                    <span class="time-detail">${(fAvailable ? fastest.distance : shortest.distance).toFixed(1)} km</span>
+                </div>
+            </div>
+        `;
+        
+        let isSameRoute = fAvailable && (Math.abs(fastest.distance - shortest.distance) < 0.01);
+        if (isSameRoute || !fAvailable) {
+            document.getElementById('routeNote').innerHTML = 'ℹ️ <b>Rute Terpendek = Rute Tercepat.</b> Jalur ini sudah merupakan opsi paling optimal karena aman dari genangan banjir yang menghambat laju, dan tidak ada jalan alternatif memutar yang dapat menghemat waktu.';
+        } else {
+            document.getElementById('routeNote').innerHTML = '⏱️ <b>Terdapat Rute Alternatif.</b> Sistem menyarankan jalur tercepat (ungu putus-putus) dengan jalan memutar untuk menghindari genangan banjir yang lebih dalam atau terlalu banyak persimpangan pada rute terpendek.';
+        }
+        
+        analysisDone = true;
+    };
+
+    document.getElementById('vehicleType').addEventListener('change', function() {
+        if (start && end) {
+            document.getElementById('btnRun').click();
+        }
+    });
+
+    document.getElementById('toggleShortest').onchange = e => e.target.checked ? map.addLayer(lShortestLayer) : map.removeLayer(lShortestLayer);
+    document.getElementById('toggleFastest').onchange = e => e.target.checked ? map.addLayer(lFastestLayer) : map.removeLayer(lFastestLayer);
+
+    // ======================== RESET PETA ========================
+    document.getElementById('btnReset').onclick = () => {
+        rollbackSnap('start');
+        rollbackSnap('end');
+        if (tempSnapRegistry._directEdges) {
+            tempSnapRegistry._directEdges = [];
+        }
+
+        if (startMarker) { map.removeLayer(startMarker); startMarker = null; }
+        if (endMarker)   { map.removeLayer(endMarker);   endMarker = null; }
+        if (selectedMarker) { map.removeLayer(selectedMarker); selectedMarker = null; }
+
+        start = null;
+        end = null;
+        analysisDone = false;
+
+        lShortestLayer.clearLayers();
+        lFastestLayer.clearLayers();
+
+        document.getElementById('results').style.display = 'none';
+        document.getElementById('timeInfo').innerHTML = '';
+        document.getElementById('routeNote').innerHTML = '';
+        document.getElementById('searchInput').value = '';
+    };
+
+    map.on('zoomend', () => {
+        if (map.getZoom() < 14) {
+            if (map.hasLayer(buildingLayer)) map.removeLayer(buildingLayer);
+        } else {
+            if (!map.hasLayer(buildingLayer)) map.addLayer(buildingLayer);
+        }
+    });
+    
+    // === KLIK DI PETA = TITIK PILIHAN ===
+    map.on('click', e => setSelectedMarker(e.latlng));
+
+    // Cegah menu konteks bawaan agar tidak mengganggu (opsional)
+    map.on('contextmenu', e => e.originalEvent.preventDefault());
+
+    window.addEventListener('resize', () => { 
+        setTimeout(() => { map.invalidateSize(); }, 200);
+    });
+
+    // ======================== LOGIKA PANDUAN PENGGUNA (INTRO.JS) ========================
+    function mulaiPanduan() {
+        let layerControl = document.querySelector('.leaflet-control-layers-toggle');
+        if(layerControl && !layerControl.hasAttribute('data-step')) {
+            let parentControl = document.querySelector('.leaflet-control-layers');
+            parentControl.setAttribute('data-title', 'Langkah 6: Ubah Peta Dasar');
+            parentControl.setAttribute('data-intro', 'Arahkan kursor atau klik ikon ini untuk mengubah tampilan peta dasar (Satelit, OSM, Google Maps).');
+            parentControl.setAttribute('data-step', '6');
+        }
+
+        let tour = introJs().setOptions({
+            nextLabel: 'Lanjut',
+            prevLabel: 'Kembali',
+            skipLabel: 'Lewati',
+            doneLabel: 'Selesai',
+            showProgress: true,
+            showBullets: false
+        });
+
+        tour.onbeforechange(function(targetElement) {
+            if (targetElement && document.querySelector('.sidebar-content').contains(targetElement)) {
+                targetElement.scrollIntoView({ behavior: "smooth", block: "center" });
+            }
+        });
+
+        tour.onafterchange(function() {
+            setTimeout(() => {
+                tour.refresh();
+            }, 150);
+        });
+
+        tour.start();
+
+        setTimeout(() => {
+            tour.refresh();
+        }, 150);
+    }
+
+    document.getElementById('btnTutorial').onclick = mulaiPanduan;
+
+    window.addEventListener('load', () => {
+        if (!localStorage.getItem('panduanSelesai')) {
+            setTimeout(() => {
+                mulaiPanduan();
+                localStorage.setItem('panduanSelesai', 'true');
+            }, 1000); 
+        }
+    });
+</script>
+</body>
+</html>
